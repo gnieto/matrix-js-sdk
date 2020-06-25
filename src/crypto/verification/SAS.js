@@ -279,6 +279,7 @@ export class SAS extends Base {
     }
 
     async _doSendVerification() {
+        console.log("Do Send verification");
         this._waitingForAccept = true;
         let startContent;
         if (this.startEvent) {
@@ -296,34 +297,43 @@ export class SAS extends Base {
         }
 
         let e;
+        console.log("Waiting to receive verification.accept");
         try {
             e = await this._waitForEvent("m.key.verification.accept");
         } finally {
             this._waitingForAccept = false;
         }
+        console.log("Received accept event");
+
         let content = e.getContent();
+        console.log("Content: " + content);
         const sasMethods
               = intersection(content.short_authentication_string, SAS_SET);
         if (!(KEY_AGREEMENT_SET.has(content.key_agreement_protocol)
               && HASHES_SET.has(content.hash)
               && MAC_SET.has(content.message_authentication_code)
               && sasMethods.length)) {
+            console.log("Unkonwn method");
             throw newUnknownMethodError();
         }
         if (typeof content.commitment !== "string") {
+          console.log("Invalid comittment");
             throw newInvalidMessageError();
         }
         const keyAgreement = content.key_agreement_protocol;
         const macMethod = content.message_authentication_code;
         const hashCommitment = content.commitment;
+        console.log("Get SAS");
         const olmSAS = new global.Olm.SAS();
         try {
+            console.log("PK");
             this.ourSASPubKey = olmSAS.get_pubkey();
+            console.log("Got PK. Send verification key");
             await this._send("m.key.verification.key", {
                 key: this.ourSASPubKey,
             });
 
-
+            console.log("Verification key sent?");
             e = await this._waitForEvent("m.key.verification.key");
             // FIXME: make sure event is properly formed
             content = e.getContent();
